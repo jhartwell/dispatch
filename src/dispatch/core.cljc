@@ -32,7 +32,7 @@
     (let [k (keyword (first args))
           v (get spec k)]
       (cond
-        (nil? v) nil
+        (nil? v) :dispatch/unmapped
         (fn? v)  #?(:clj  (verify-then-dispatch v (rest args))
                     :cljs (apply v (rest args)))
         (map? v) (dispatch (rest args) v)))))

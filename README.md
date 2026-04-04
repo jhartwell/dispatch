@@ -61,10 +61,10 @@ Functions with rest arguments are supported:
 
 ## Error handling
 
-`dispatch` returns `nil` for unknown commands:
+`dispatch` returns `:dispatch/unmapped` for unknown commands:
 
 ```clojure
-(dispatch ["unknown"] spec) ;=> nil
+(dispatch ["unknown"] spec) ;=> :dispatch/unmapped
 ```
 
 On the JVM, arity mismatches throw `ExceptionInfo` (see [Platform differences](#platform-differences)):

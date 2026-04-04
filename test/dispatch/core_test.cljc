@@ -97,11 +97,11 @@
 ;; Unknown keys
 ;; ---------------------------------------------------------------------------
 
-(deftest returns-nil-for-unknown-top-level-key
-  (is (nil? (dispatch ["unknown"] spec))))
+(deftest returns-unmapped-for-unknown-top-level-key
+  (is (= :dispatch/unmapped (dispatch ["unknown"] spec))))
 
-(deftest returns-nil-for-unknown-nested-key
-  (is (nil? (dispatch ["db" "unknown"] spec))))
+(deftest returns-unmapped-for-unknown-nested-key
+  (is (= :dispatch/unmapped (dispatch ["db" "unknown"] spec))))
 
 (deftest returns-nil-for-empty-args
   (is (nil? (dispatch [] spec))))
