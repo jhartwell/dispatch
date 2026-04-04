@@ -1,0 +1,26 @@
+{:paths ["src"]
+
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}}
+
+ :aliases
+ {:test  {:extra-paths ["test"]
+           :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+           :main-opts   ["-m" "kaocha.runner"]}
+  :cljs-test {:extra-paths ["test"]
+              :extra-deps  {org.clojure/clojurescript {:mvn/version "1.12.134"}}
+              :main-opts   ["-m" "cljs.main"
+                            "--target" "node"
+                            "--output-dir" "target/cljs"
+                            "-m" "dispatch.test-runner"]}
+  :build {:paths ["."]
+          :deps  {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
+          :ns-default build}
+  :deploy  {:extra-deps {slipset/deps-deploy {:mvn/version "RELEASE"}}
+            :exec-fn    deps-deploy.deps-deploy/deploy
+            :exec-args  {:installer      :remote
+                         :sign-releases? true
+                         :artifact       "target/dispatch.jar"}}
+  :install {:extra-deps {slipset/deps-deploy {:mvn/version "RELEASE"}}
+            :exec-fn    deps-deploy.deps-deploy/deploy
+            :exec-args  {:installer :local
+                         :artifact  "target/dispatch.jar"}}}}

@@ -1,0 +1,19 @@
+# Clojure
+.clj-kondo/
+.cpcache/
+.lsp/
+.nrepl-port
+.portal/
+
+# Build
+target/
+
+# Editor
+.calva/
+.cursive/
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
