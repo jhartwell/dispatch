@@ -1,5 +1,8 @@
 ;; Basic usage — mapping top-level string arguments to functions.
 ;; Each key in the spec corresponds to a CLI-style command word.
+;;
+;; Use Var references (#') so dispatch can read :arglists metadata
+;; for arity checking.
 
 (require '[dispatch.core :refer [dispatch]])
 
@@ -10,9 +13,9 @@
   (str "Goodbye, " name "!"))
 
 (def spec
-  {:greet    greet
-   :farewell farewell})
+  {:greet    #'greet
+   :farewell #'farewell})
 
 (dispatch ["greet" "Alice"]    spec) ;=> "Hello, Alice!"
 (dispatch ["farewell" "Alice"] spec) ;=> "Goodbye, Alice!"
-(dispatch ["unknown" "Alice"]  spec) ;=> nil
+(dispatch ["unknown" "Alice"]  spec) ;=> :dispatch/unmapped

@@ -22,12 +22,16 @@ Require the namespace:
 
 - Each string in the argument vector is converted to a keyword and looked up in the current spec map
 - If the value is a **map**, dispatch recurses into it with the remaining arguments
-- If the value is a **function**, the remaining arguments are passed to it
-- If the key is not found, `nil` is returned
+- If the value is a **function or Var**, the remaining arguments are passed to it
+- If the key is not found, `:dispatch/unmapped` is returned
+- If the argument vector is empty, `:dispatch/empty-args` is returned
+
+Use Var references (`#'fn-name`) in your spec so dispatch can read `:arglists` metadata for arity checking:
 
 ```clojure
-(def spec
-  {:greet (fn [name] (str "Hello, " name))})
+(defn greet [name] (str "Hello, " name))
+
+(def spec {:greet #'greet})
 
 (dispatch ["greet" "Alice"] spec) ;=> "Hello, Alice"
 ```
@@ -37,9 +41,12 @@ Require the namespace:
 Nest maps to create subcommand trees:
 
 ```clojure
+(defn create-user [username email] (str "Created " username))
+(defn delete-user [username]       (str "Deleted " username))
+
 (def spec
-  {:user {:create (fn [username email] (str "Created " username))
-          :delete (fn [username]       (str "Deleted " username))}})
+  {:user {:create #'create-user
+          :delete #'delete-user}})
 
 (dispatch ["user" "create" "alice" "alice@example.com"] spec) ;=> "Created alice"
 (dispatch ["user" "delete" "alice"]                     spec) ;=> "Deleted alice"
@@ -53,21 +60,42 @@ Functions with rest arguments are supported:
 (defn log [level & messages]
   (str "[" level "] " (clojure.string/join " " messages)))
 
-(def spec {:log log})
+(def spec {:log #'log})
 
 (dispatch ["log" "INFO" "server" "started"] spec) ;=> "[INFO] server started"
 (dispatch ["log" "WARN"]                    spec) ;=> "[WARN] "
 ```
 
+## Anonymous functions
+
+Anonymous `fn` forms have no `:arglists` metadata, so arity checking is skipped by default. To enable arity checking on an anonymous function, attach `:arg-count` metadata via `with-meta`:
+
+```clojure
+;; Arity checked — :arg-count metadata present
+(def spec
+  {:greet (with-meta (fn [name] (str "Hello, " name))
+                     {:arg-count 1})})
+
+(dispatch ["greet" "Alice"] spec) ;=> "Hello, Alice"
+(dispatch ["greet"]         spec) ;=> throws ExceptionInfo
+
+;; Arity not checked — no metadata
+(def spec
+  {:greet (fn [name] (str "Hello, " name))})
+
+(dispatch ["greet"] spec) ;=> throws clojure.lang.ArityException (runtime error)
+```
+
 ## Error handling
 
-`dispatch` returns `:dispatch/unmapped` for unknown commands:
+`dispatch` returns `:dispatch/unmapped` for unknown commands and `:dispatch/empty-args` when called with no arguments:
 
 ```clojure
 (dispatch ["unknown"] spec) ;=> :dispatch/unmapped
+(dispatch []          spec) ;=> :dispatch/empty-args
 ```
 
-On the JVM, arity mismatches throw `ExceptionInfo` (see [Platform differences](#platform-differences)):
+Arity mismatches throw `ExceptionInfo`:
 
 ```clojure
 (try
@@ -86,28 +114,30 @@ The `ex-data` map contains:
 
 ## Platform differences
 
-dispatch is implemented as a `.cljc` file and runs on both the JVM and ClojureScript, with one behavioural difference:
+dispatch is a `.cljc` library that runs identically on both the JVM and ClojureScript.
 
 ### Arity validation
 
-**JVM:** Before calling a matched function, dispatch uses Java reflection to inspect the function's compiled arities. If the number of provided arguments does not match any valid arity, dispatch throws an `ExceptionInfo` with `:provided` and `:expected` keys before the function is ever invoked.
+Arity checking uses metadata attached to functions:
 
-**ClojureScript:** Java reflection is not available, so arity validation is skipped. The matched function is called directly with the remaining arguments. If the argument count is wrong, the JavaScript engine will throw its own error.
+- **Var references** (`#'fn-name`): `:arglists` is attached automatically by `defn` on both JVM and ClojureScript. Use these in your spec for reliable arity checking.
+- **Anonymous functions with `:arg-count`**: attach `{:arg-count n}` via `with-meta` to enable exact arity checking.
+- **Anonymous functions without metadata**: arity check is skipped entirely. The function is called directly; a wrong argument count results in a runtime error from the platform.
 
 ```clojure
-;; JVM — controlled ex-info thrown by dispatch before calling the fn
-(try
-  (dispatch ["log"] spec)
-  (catch clojure.lang.ExceptionInfo e
-    (ex-data e)))
-;=> {:provided 0, :expected #{1}}
+;; Var — arity checked on both JVM and ClojureScript
+(dispatch ["log"] spec)
+;; => throws ExceptionInfo {:provided 0, :expected #{1}}
 
-;; ClojureScript — dispatch calls the fn, JS engine throws
-(try
-  (dispatch ["log"] spec)
-  (catch :default e
-    (.-message e)))
-;=> "Invalid arity: 0"
+;; Anonymous fn with :arg-count — arity checked on both platforms
+(def spec {:greet (with-meta (fn [name] (str "Hello, " name)) {:arg-count 1})})
+(dispatch ["greet"] spec)
+;; => throws ExceptionInfo {:provided 0, :expected #{1}}
+
+;; Anonymous fn without metadata — no arity check, runtime throws
+(def spec {:greet (fn [name] (str "Hello, " name))})
+(dispatch ["greet"] spec)
+;; => throws clojure.lang.ArityException (JVM) or JS runtime error (ClojureScript)
 ```
 
 ## Development

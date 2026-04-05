@@ -1,6 +1,9 @@
 ;; Variadic commands — functions with a required argument followed by
 ;; optional rest args. Useful for commands that accept a variable number
 ;; of inputs, like tagging or bulk operations.
+;;
+;; Use Var references (#') so dispatch can read :arglists metadata
+;; for arity checking, including the minimum required argument count.
 
 (require '[dispatch.core :refer [dispatch]]
          '[clojure.string :as str])
@@ -15,9 +18,9 @@
   (str/join " " args))
 
 (def spec
-  {:tag  tag
-   :log  log
-   :echo echo})
+  {:tag  #'tag
+   :log  #'log
+   :echo #'echo})
 
 (dispatch ["tag" "server-1" "prod" "us-east" "web"]  spec) ;=> "Tagged server-1 with: prod, us-east, web"
 (dispatch ["tag" "server-1"]                          spec) ;=> "Tagged server-1 with: "

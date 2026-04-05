@@ -17,3 +17,7 @@ target/
 
 # OS
 .DS_Store
+
+# Claude
+.claude/
+CLAUDE.md

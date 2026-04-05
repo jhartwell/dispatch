@@ -16,7 +16,7 @@
 (defn move-file [src dst]
   (str "Moving " src " to " dst))
 
-(defn delete-file [path & {:as _opts}]
+(defn delete-file [path]
   (str "Deleting " path))
 
 (defn search-files [dir pattern & flags]
@@ -32,13 +32,13 @@
 ;; --- Spec ---
 
 (def spec
-  {:file {:list    list-files
-          :copy    copy-file
-          :move    move-file
-          :delete  delete-file
-          :search  search-files
-          :info    show-info}
-   :perm {:set     set-permission}})
+  {:file {:list    #'list-files
+          :copy    #'copy-file
+          :move    #'move-file
+          :delete  #'delete-file
+          :search  #'search-files
+          :info    #'show-info}
+   :perm {:set     #'set-permission}})
 
 ;; --- Usage ---
 
@@ -68,8 +68,9 @@
 (defn run [args]
   (try
     (let [result (dispatch args spec)]
-      (if (nil? result)
-        (println "Unknown command:" (str/join " " args))
+      (case result
+        :dispatch/unmapped  (println "Unknown command:" (str/join " " args))
+        :dispatch/empty-args (println "No command provided")
         (println result)))
     (catch clojure.lang.ExceptionInfo e
       (let [{:keys [provided expected]} (ex-data e)]
@@ -77,3 +78,4 @@
 
 (run ["file" "copy" "only-one-arg"]) ;=> Wrong number of arguments — expected: #{2}, got: 1
 (run ["unknown" "command"])          ;=> Unknown command: unknown command
+(run [])                             ;=> No command provided

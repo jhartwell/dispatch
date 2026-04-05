@@ -1,38 +1,41 @@
 (ns dispatch.core)
 
-#?(:clj
-   (defn- fn-arities [f]
-     (let [methods      (.getDeclaredMethods (class f))
-           invoke-ms    (filter #(= "invoke" (.getName %)) methods)
-           do-invoke-ms (filter #(= "doInvoke" (.getName %)) methods)
-           variadic?    (boolean (seq do-invoke-ms))
-           arities      (->> invoke-ms (map #(count (.getParameterTypes %))) set)
-           min-arity    (if variadic?
-                          (dec (count (.getParameterTypes (first do-invoke-ms))))
-                          (when (seq arities) (apply min arities)))]
-       {:arities   arities
-        :variadic? variadic?
-        :min-arity min-arity})))
+(defn- meta->arity-info [m]
+  (if-let [arglists (seq (:arglists m))]
+    (let [variadic? (boolean (some #(some #{'&} %) arglists))
+          min-arity (when variadic?
+                      (->> arglists
+                           (filter #(some #{'&} %))
+                           (map #(count (take-while (fn [x] (not= '& x)) %)))
+                           (apply min)))
+          arities   (when-not variadic?
+                      (->> arglists (map count) set))]
+      {:arities   arities
+       :variadic? variadic?
+       :min-arity min-arity})
+    (when-let [n (:arg-count m)]
+      {:arities #{n} :variadic? false :min-arity nil})))
 
-#?(:clj
-   (defn- verify-then-dispatch [v args]
-     (let [{:keys [arities variadic? min-arity]} (fn-arities v)
-           n         (count args)
-           arity-ok? (if variadic?
-                       (>= n min-arity)
-                       (contains? arities n))]
-       (if arity-ok?
-         (apply v args)
-         (throw (ex-info "Argument count mismatch"
-                         {:provided n
-                          :expected (if variadic? #{min-arity} arities)}))))))
+(defn- verify-then-dispatch [f arity-info args]
+  (let [n (count args)]
+    (if-let [{:keys [arities variadic? min-arity]} arity-info]
+      (let [arity-ok? (if variadic?
+                        (>= n min-arity)
+                        (contains? arities n))]
+        (if arity-ok?
+          (apply f args)
+          (throw (ex-info "Argument count mismatch"
+                          {:provided n
+                           :expected (if variadic? #{min-arity} arities)}))))
+      (apply f args))))
 
 (defn dispatch [args spec]
-  (when (seq args)
+  (if-not (seq args)
+    :dispatch/empty-args
     (let [k (keyword (first args))
           v (get spec k)]
       (cond
         (nil? v) :dispatch/unmapped
-        (fn? v)  #?(:clj  (verify-then-dispatch v (rest args))
-                    :cljs (apply v (rest args)))
+        (var? v) (verify-then-dispatch @v (meta->arity-info (meta v)) (rest args))
+        (fn? v)  (verify-then-dispatch v  (meta->arity-info (meta v)) (rest args))
         (map? v) (dispatch (rest args) v)))))
