@@ -17,6 +17,8 @@
                 :version   version
                 :basis     @basis
                 :src-dirs  ["src"]})
+  (b/copy-file {:src  (b/pom-path {:lib lib :class-dir class-dir})
+                :target "pom.xml"})
   (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
